@@ -6,39 +6,76 @@ from kivy.core.window import Window
 from kivy.resources import resource_find
 from kivy.graphics.transformation import Matrix
 from kivy.graphics.opengl import *
+from kivy.graphics.gl_instructions import ClearBuffers
 from kivy.graphics import *
 from objloader import ObjFileLoader
 from kivy.logger import Logger
 from rotation import SingleRotate
 from kivy.uix.widget import Widget
+from kivy.graphics.fbo import Fbo
+from kivy.properties import ObjectProperty
 
 class Renderer(Widget):
+    
+    texture = ObjectProperty(None, allownone=True)    
+    
     def __init__(self, **kwargs):
-        self.canvas = RenderContext(compute_normal_mat=True)
-        self.canvas.shader.source = resource_find('simple.glsl')
+
+        #self.canvas = RenderContext(compute_normal_mat=True)
+        #self.canvas.shader.source = resource_find('simple.glsl')
+        self.canvas = Canvas()
         self.scene = ObjFileLoader(resource_find("testnurbs.obj"))
-        super(Renderer, self).__init__(**kwargs)
+        
         self.meshes = []
+        
         with self.canvas:
+            self.fbo = Fbo(size=self.size, with_depthbuffer=True, compute_normal_mat=True)
+            #Color(1, 1, 1)
+            self.viewport = Rectangle(size=self.size, pos=self.pos)
+        self.fbo.shader.source = resource_find('simple.glsl')
+        #self.texture = self.fbo.texture
+        
+
+        super(Renderer, self).__init__(**kwargs)
+
+        with self.fbo:
+            ClearBuffers(clear_depth=True)
             self.cb = Callback(self.setup_gl_context)
             PushMatrix()
             self.setup_scene()
             PopMatrix()
             self.cb = Callback(self.reset_gl_context)
-            Clock.schedule_interval(self.update_scene, 1 / 60.)
+        
+        Clock.schedule_interval(self.update_scene, 1 / 60.)
         
         self._touches = []
 
+    def on_size(self, instance, value):
+        self.fbo.size = value
+        self.viewport.texture = self.fbo.texture
+        self.viewport.size = value
+        self.update_glsl()
+
+    def on_pos(self, instance, value):
+        self.viewport.pos = value
+
+    def on_texture(self, instance, value):
+        
+        self.viewport.texture = value
+
+
     def setup_gl_context(self, *args):
+        #clear_buffer
         glEnable(GL_DEPTH_TEST)
 
     def reset_gl_context(self, *args):
         glDisable(GL_DEPTH_TEST)
+        
 
     def update_glsl(self, *largs):
         asp = self.width / float(self.height)
         proj = Matrix().view_clip(-asp, asp, -1, 1, 1, 100, 1)
-        self.canvas['projection_mat'] = proj
+        self.fbo['projection_mat'] = proj
 
     def setup_scene(self):
         Color(1, 1, 1, 0)
@@ -68,41 +105,51 @@ class Renderer(Widget):
                 fmt=m.vertex_format,
                 mode='triangles',
             )
+            
+        def _set_color(*color, **kw):
+            id_color = kw.pop('id_color', (0, 0, 0))
+            return ChangeState(
+                        Kd=color,
+                        Ka=color,
+                        Ks=(.3, .3, .3),
+                        Tr=1., Ns=1.,
+                        intensity=1.,
+                        id_color=[i / 255. for i in id_color],
+                    )
+            
         # Draw sphere in the center
         sphere = self.scene.objects['Sphere']
+        _set_color(0.7, 0.7, 0, id_color=(255, 255, 0))
         _draw_element(sphere)
         
         # Then draw other elements and totate it in different axis
         pyramid = self.scene.objects['Pyramid']
-        #self.pyramid_rot = SingleRotate(0, (0, 0, 1), self.canvas)
         PushMatrix()
         self.pyramid_rot = Rotate(0, 0, 0, 1)
+        _set_color(0, 0, .7, id_color=(0., 0., 255))
         _draw_element(pyramid)
         PopMatrix()
-        #self.pyramid_rot.clear()
         
         box = self.scene.objects['Box']
-        #self.box_rot = SingleRotate(0, (0, 1, 0), self.canvas)
         PushMatrix()
         self.box_rot = Rotate(0, 0, 1, 0)
+        _set_color(.7, 0, 0, id_color=(255, 0., 0))
         _draw_element(box)
         PopMatrix()
-        #self.box_rot.clear()
 
         cylinder = self.scene.objects['Cylinder']
-        #self.cylinder_rot = SingleRotate(0, (1, 0, 0), self.canvas)
         PushMatrix()
         self.cylinder_rot = Rotate(0, 1, 0, 0)
+        _set_color(0.0, .7, 0, id_color=(0., 255, 0))
         _draw_element(cylinder)
         PopMatrix()
-        #self.cylinder_rot.clear()
     
 
     def update_scene(self, *largs):
         self.pyramid_rot.angle += 0.5
         self.box_rot.angle += 0.5
         self.cylinder_rot.angle += 0.5
-        self.update_glsl()
+        
     
     # =============== All stuff after is for trackball implementation =============
         
@@ -119,6 +166,13 @@ class Renderer(Widget):
     def on_touch_up(self, touch): 
         touch.ungrab(self)
         self._touches.remove(touch)
+        self.fbo.shader.source = 'select_mode.glsl'
+        self.fbo.ask_update()
+        self.fbo.draw()
+        print self.fbo.get_pixel_color(touch.x, touch.y)
+        self.fbo.shader.source = 'simple.glsl'
+        self.fbo.ask_update()
+        self.fbo.draw()
     
     def on_touch_move(self, touch): 
 
