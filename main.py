@@ -5,6 +5,8 @@ from kivy.clock import Clock
 from kivy.core.window import Window
 from kivy.resources import resource_find
 from kivy.graphics.transformation import Matrix
+from kivy.uix.button import Button
+from kivy.uix.floatlayout import FloatLayout
 from kivy.graphics.opengl import *
 from kivy.graphics.gl_instructions import ClearBuffers
 from kivy.graphics import *
@@ -29,8 +31,7 @@ class Renderer(Widget):
         self.meshes = []
         
         with self.canvas:
-            self.fbo = Fbo(size=self.size, with_depthbuffer=True, compute_normal_mat=True)
-            #Color(1, 1, 1)
+            self.fbo = Fbo(size=self.size, with_depthbuffer=True, compute_normal_mat=True, clear_color=(0, 0, 0, 0.5))
             self.viewport = Rectangle(size=self.size, pos=self.pos)
         self.fbo.shader.source = resource_find('simple.glsl')
         #self.texture = self.fbo.texture
@@ -39,12 +40,14 @@ class Renderer(Widget):
         super(Renderer, self).__init__(**kwargs)
 
         with self.fbo:
-            ClearBuffers(clear_depth=True)
+            #ClearBuffers(clear_depth=True)
+            
             self.cb = Callback(self.setup_gl_context)
             PushMatrix()
             self.setup_scene()
             PopMatrix()
             self.cb = Callback(self.reset_gl_context)
+
         
         Clock.schedule_interval(self.update_scene, 1 / 60.)
         
@@ -60,13 +63,14 @@ class Renderer(Widget):
         self.viewport.pos = value
 
     def on_texture(self, instance, value):
-        
         self.viewport.texture = value
 
 
     def setup_gl_context(self, *args):
         #clear_buffer
         glEnable(GL_DEPTH_TEST)
+        self.fbo.clear_buffer()
+        #glDepthMask(GL_FALSE);
 
     def reset_gl_context(self, *args):
         glDisable(GL_DEPTH_TEST)
@@ -222,8 +226,17 @@ class Renderer(Widget):
 
 class RendererApp(App):
     def build(self):
-
-        return Renderer()
-
+        root = FloatLayout()
+        renderer = Renderer()
+        btn = Button(size_hint=(None, None), size=root.size, text="Hello world", pos=(0, 0), font_size="120dp")
+        root.add_widget(btn)
+        root.add_widget(renderer)
+        #root.add_widget(btn)
+        def _on_resize(inst, value):
+            btn.size = value
+        root.bind(size=_on_resize)
+        return root
+        
+        
 if __name__ == "__main__":
     RendererApp().run()
