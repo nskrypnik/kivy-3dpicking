@@ -4,8 +4,8 @@ from kivy.app import App
 from kivy.clock import Clock
 from kivy.core.window import Window
 from kivy.resources import resource_find
-from kivy.graphics.transformation import Matrix
 from kivy.uix.button import Button
+from kivy.graphics.transformation import Matrix
 from kivy.uix.floatlayout import FloatLayout
 from kivy.graphics.opengl import *
 from kivy.graphics.gl_instructions import ClearBuffers
@@ -31,7 +31,7 @@ class Renderer(Widget):
         self.meshes = []
         
         with self.canvas:
-            self.fbo = Fbo(size=self.size, with_depthbuffer=True, compute_normal_mat=True, clear_color=(0, 0, 0, 0.5))
+            self.fbo = Fbo(size=self.size, with_depthbuffer=True, compute_normal_mat=True, clear_color=(0., 0., 0., 0.))
             self.viewport = Rectangle(size=self.size, pos=self.pos)
         self.fbo.shader.source = resource_find('simple.glsl')
         #self.texture = self.fbo.texture
@@ -123,28 +123,28 @@ class Renderer(Widget):
             
         # Draw sphere in the center
         sphere = self.scene.objects['Sphere']
-        _set_color(0.7, 0.7, 0, id_color=(255, 255, 0))
+        _set_color(0.7, 0.7, 0., id_color=(255, 255, 0))
         _draw_element(sphere)
         
         # Then draw other elements and totate it in different axis
         pyramid = self.scene.objects['Pyramid']
         PushMatrix()
         self.pyramid_rot = Rotate(0, 0, 0, 1)
-        _set_color(0, 0, .7, id_color=(0., 0., 255))
+        _set_color(0., 0., .7, id_color=(0., 0., 255))
         _draw_element(pyramid)
         PopMatrix()
         
         box = self.scene.objects['Box']
         PushMatrix()
         self.box_rot = Rotate(0, 0, 1, 0)
-        _set_color(.7, 0, 0, id_color=(255, 0., 0))
+        _set_color(.7, 0., 0., id_color=(255, 0., 0))
         _draw_element(box)
         PopMatrix()
 
         cylinder = self.scene.objects['Cylinder']
         PushMatrix()
         self.cylinder_rot = Rotate(0, 1, 0, 0)
-        _set_color(0.0, .7, 0, id_color=(0., 255, 0))
+        _set_color(0.0, .7, 0., id_color=(0., 255, 0))
         _draw_element(cylinder)
         PopMatrix()
     
